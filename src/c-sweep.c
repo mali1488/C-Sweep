@@ -43,17 +43,6 @@ void render_game(Game game) {
   }
 }
 
-Rectangle get_mine_rectangle(int x, int y) {
-  const float mine_size = WIDTH / GRID_SIZE;
-  Rectangle rect = {
-    .x = x,
-    .y = y,
-    .width = mine_size,
-    .height = mine_size
-  };
-  return rect;
-}
-
 void update_game(Game *game) {
   if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
     Vector2 mouse_pos = GetMousePosition();
