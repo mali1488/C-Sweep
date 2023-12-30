@@ -18,21 +18,49 @@ typedef struct {
   MineState state[GRID_SIZE*GRID_SIZE];
 } Game;
 
+Color color_for_state(MineState state) {
+  switch (state) {
+  case UNKNOWN: return WHITE;
+  case OPEN: return GREEN;
+  case MINE: return RED;
+  }
+}
+
 void render_game(Game game) {
-  const float width = GetScreenWidth();
-  const float mine_size = width / GRID_SIZE;
+  const float mine_size = WIDTH / GRID_SIZE;
   const float padding = 1;
   for(size_t row = 0; row < GRID_SIZE; row++) {
     for(size_t col = 0; col < GRID_SIZE; col++) {
       const MineState state = game.state[row*GRID_SIZE + col];
-      DrawRectangle(
-	  row * mine_size + padding,
-	  col * mine_size + padding,
-	  mine_size - padding * 2,
-	  mine_size - padding * 2,
-	  state == MINE ? RED : WHITE
-      );
+      Rectangle rec = {
+	  .x = row * mine_size + padding,
+	  .y = col * mine_size + padding,
+	  .width = mine_size - padding * 2,
+	  .height = mine_size - padding * 2,
+      };
+      DrawRectangleRec(rec, color_for_state(state));
     }
+  }
+}
+
+Rectangle get_mine_rectangle(int x, int y) {
+  const float mine_size = WIDTH / GRID_SIZE;
+  Rectangle rect = {
+    .x = x,
+    .y = y,
+    .width = mine_size,
+    .height = mine_size
+  };
+  return rect;
+}
+
+void update_game(Game *game) {
+  if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+    Vector2 mouse_pos = GetMousePosition();
+    float mine_size = WIDTH / GRID_SIZE;
+    int row = mouse_pos.x / mine_size;
+    int col = mouse_pos.y / mine_size;
+    game->state[row*GRID_SIZE + col] = OPEN;
   }
 }
 
@@ -60,7 +88,10 @@ int main() {
   while (!WindowShouldClose()) {
     BeginDrawing();
     ClearBackground(BLACK);
+
+    update_game(&game);
     render_game(game);
+
     EndDrawing();
   }
 
