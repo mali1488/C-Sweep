@@ -8,9 +8,12 @@
 #define WIDTH 600
 #define HEIGHT 600
 #define GRID_SIZE 5
+#define COLOR_OPEN GREEN
+#define COLOR_MINE RED
+#define COLOR_NOT_VISITED RAYWHITE
 
 typedef enum {
-  UNKNOWN = 0,
+  NOT_VISITED = 0,
   OPEN = 1,
   MINE = 2
 } MineState;
@@ -22,28 +25,38 @@ typedef enum {
 } GameState;
 
 typedef struct {
-  MineState state[GRID_SIZE*GRID_SIZE];
+  MineState tiles[GRID_SIZE*GRID_SIZE];
   bool is_first_move;
   GameState game_state;
 } Game;
 
-int mine_index(int row, int col) {
+int tile_index(int row, int col) {
   return row*GRID_SIZE + col;
 }
 
-MineState state_at(Game *game, int row, int col) {
-  return game->state[mine_index(row, col)];
+MineState tile_state_at(Game *game, int row, int col) {
+  return game->tiles[tile_index(row, col)];
 }
 
-void state_update(Game *game, int row, int col, MineState state) {
-  game->state[mine_index(row, col)] = state;
+void tile_state_update(Game *game, int row, int col, MineState state) {
+  game->tiles[tile_index(row, col)] = state;
 }
 
 Color color_for_state(MineState state) {
   switch (state) {
-  case UNKNOWN: return WHITE;
-  case OPEN: return GREEN;
-  case MINE: return RED;
+  case NOT_VISITED: return COLOR_NOT_VISITED;
+  case OPEN: return COLOR_OPEN;
+  case MINE: return COLOR_MINE;
+  }
+}
+
+Color color_for_number_of_adjacent(int adjacent) {
+  switch (adjacent) {
+  case 0: return COLOR_OPEN;
+  case 1: return BLUE;
+  case 2: return YELLOW;
+  case 3: return ORANGE;
+  default: return COLOR_MINE;
   }
 }
 
@@ -69,7 +82,7 @@ int count_adjacent(Game *game, int row, int col) {
       if (!is_valid(dx, dy)) {
 	continue;
       }
-      MineState adjacent = state_at(game, dx, dy);
+      MineState adjacent = tile_state_at(game, dx, dy);
       if (adjacent == MINE) {
 	number_of_mines += 1;
       }
@@ -82,11 +95,11 @@ void open_cells_with_non_adjacent_mines(Game *game, int row, int col) {
   if (!is_valid(row, col)) {
     return;
   }
-  MineState curr = state_at(game, row, col);
+  MineState curr = tile_state_at(game, row, col);
   if (curr == MINE || curr == OPEN) {
     return;
   }
-  state_update(game, row, col, OPEN);
+  tile_state_update(game, row, col, OPEN);
   const int adjacent_mines = count_adjacent(game, row, col);
   if (adjacent_mines > 0) {
     return;
@@ -107,9 +120,9 @@ void move_mine(Game *game, int row, int col) {
     const int r = rand() % GRID_SIZE;
     const int c = rand() % GRID_SIZE;
     if (row != r && c != col) {
-      MineState random_state = state_at(game, row, col);
+      MineState random_state = tile_state_at(game, row, col);
       if (random_state != MINE) {
-	state_update(game, r, c, MINE);
+	tile_state_update(game, r, c, MINE);
 	moved = true;
       }
     }
@@ -119,8 +132,8 @@ void move_mine(Game *game, int row, int col) {
 void update_if_won(Game *game) {
   for(int row = 0; row < GRID_SIZE; row++) {
     for(int col = 0; col < GRID_SIZE; col++) {
-      MineState state = state_at(game, row, col);
-      if (state == UNKNOWN) {
+      MineState state = tile_state_at(game, row, col);
+      if (state == NOT_VISITED) {
 	return;
       }
     }
@@ -136,9 +149,9 @@ void update_game(Game *game) {
   float mine_size = WIDTH / GRID_SIZE;
   int row = mouse_pos.x / mine_size;
   int col = mouse_pos.y / mine_size;
-  MineState state = state_at(game, row, col);
+  MineState state = tile_state_at(game, row, col);
   switch (state) {
-  case UNKNOWN: {
+  case NOT_VISITED: {
     open_cells_with_non_adjacent_mines(game, row, col);
     update_if_won(game);
     break;
@@ -147,7 +160,7 @@ void update_game(Game *game) {
     break;
   case MINE:
     if (game->is_first_move) {
-      state_update(game, row, col, OPEN);
+      tile_state_update(game, row, col, OPEN);
       move_mine(game, row, col);
     } else {
       game->game_state = LOST;
@@ -158,13 +171,13 @@ void update_game(Game *game) {
 }
 
 void generate_mines(Game *game) {
-  int number_of_mines = GRID_SIZE * GRID_SIZE * 0.3;
+  int number_of_mines = GRID_SIZE * GRID_SIZE * 0.8;
   while (number_of_mines > 0) {
     const int row = rand() % GRID_SIZE;
     const int col = rand() % GRID_SIZE;
-    MineState state = state_at(game, row, col);
-    if (state == UNKNOWN) {
-      state_update(game, row, col, MINE);
+    MineState state = tile_state_at(game, row, col);
+    if (state == NOT_VISITED) {
+      tile_state_update(game, row, col, MINE);
     }
     number_of_mines--;
   }
@@ -188,7 +201,7 @@ void render_game(Game game) {
   const float padding = 1;
   for(size_t row = 0; row < GRID_SIZE; row++) {
     for(size_t col = 0; col < GRID_SIZE; col++) {
-      const MineState state = state_at(&game, row, col);
+      const MineState state = tile_state_at(&game, row, col);
       const float x = row * mine_size + padding;
       const float y = col * mine_size + padding;
       Rectangle rec = {
@@ -202,11 +215,18 @@ void render_game(Game game) {
 	const int count = count_adjacent(&game, row, col);
 	char buff[8];
 	int_to_char(count, buff);
+
 	const int font_size = mine_size * 0.9;
 	const int size = MeasureText(buff, font_size);
 	const float text_x = x + mine_size / 2 - size / 2;
 	const float text_y = y + mine_size / 2 - font_size / 2;
-	DrawText(buff, text_x, text_y, font_size, BLUE);
+	DrawText(
+	    buff,
+	    text_x,
+	    text_y,
+	    font_size,
+	    color_for_number_of_adjacent(count)
+	);
       }
     }
   }
@@ -232,6 +252,7 @@ int main() {
       // TODO: Make nice win screen
       puts("won =)!");
     }
+    // TODO: Implement ability to flag unknown tiles
     render_game(game);
 
     EndDrawing();
