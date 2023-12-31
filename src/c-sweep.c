@@ -21,6 +21,19 @@ typedef struct {
   bool lost;
 } Game;
 
+
+int mine_index(int row, int col) {
+  return row*GRID_SIZE + col;
+}
+
+MineState state_at(Game *game, int row, int col) {
+  return game->state[mine_index(row, col)];
+}
+
+void state_update(Game *game, int row, int col, MineState state) {
+  game->state[mine_index(row, col)] = state;
+}
+
 Color color_for_state(MineState state) {
   switch (state) {
   case UNKNOWN: return WHITE;
@@ -34,7 +47,7 @@ void render_game(Game game) {
   const float padding = 1;
   for(size_t row = 0; row < GRID_SIZE; row++) {
     for(size_t col = 0; col < GRID_SIZE; col++) {
-      const MineState state = game.state[row*GRID_SIZE + col];
+      const MineState state = state_at(&game, row, col);
       Rectangle rec = {
 	  .x = row * mine_size + padding,
 	  .y = col * mine_size + padding,
@@ -44,14 +57,6 @@ void render_game(Game game) {
       DrawRectangleRec(rec, color_for_state(state));
     }
   }
-}
-
-int mine_index(int row, int col) {
-  return row*GRID_SIZE + col;
-}
-
-MineState state_at(Game *game, int row, int col) {
-  return game->state[mine_index(row, col)];
 }
 
 bool is_valid(int row, int col) {
@@ -93,8 +98,7 @@ void open_cells_with_non_adjacent_mines(Game *game, int row, int col) {
   if (curr == MINE || curr == OPEN) {
     return;
   }
-
-  game->state[mine_index(row, col)] = OPEN;
+  state_update(game, row, col, OPEN);
   const int adjacent_mines = count_adjacent(game, row, col);
   if (adjacent_mines > 0) {
     return;
@@ -109,30 +113,47 @@ void open_cells_with_non_adjacent_mines(Game *game, int row, int col) {
   }
 }
 
-void update_game(Game *game) {
-  if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-    Vector2 mouse_pos = GetMousePosition();
-    float mine_size = WIDTH / GRID_SIZE;
-    int row = mouse_pos.x / mine_size;
-    int col = mouse_pos.y / mine_size;
-    MineState state = game->state[row*GRID_SIZE + col];
-    switch (state) {
-    case UNKNOWN: {
-      open_cells_with_non_adjacent_mines(game, row, col);
-      break;
-    }
-    case OPEN:
-      printf("Hit open! \n");
-      break;
-    case MINE:
-      if (game->is_first_move) {
-	
-      } else {
-	game->lost = true;
+void move_mine(Game *game, int row, int col) {
+  bool moved = false;
+  while (!moved) {
+    const int r = rand() % GRID_SIZE;
+    const int c = rand() % GRID_SIZE;
+    if (row != r && c != col) {
+      MineState random_state = state_at(game, row, col);
+      if (random_state != MINE) {
+	state_update(game, r, c, MINE);
+	moved = true;
       }
     }
-    game->is_first_move = false;
   }
+}
+
+void update_game(Game *game) {
+  if (!IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+    return;
+  }
+  Vector2 mouse_pos = GetMousePosition();
+  float mine_size = WIDTH / GRID_SIZE;
+  int row = mouse_pos.x / mine_size;
+  int col = mouse_pos.y / mine_size;
+  MineState state = state_at(game, row, col);
+  switch (state) {
+  case UNKNOWN: {
+    open_cells_with_non_adjacent_mines(game, row, col);
+    break;
+  }
+  case OPEN:
+    break;
+  case MINE:
+    if (game->is_first_move) {
+      state_update(game, row, col, OPEN);
+      move_mine(game, row, col);
+    } else {
+      game->lost = true;
+    }
+    break;
+  }
+  game->is_first_move = false;
 }
 
 void generate_mines(Game *game) {
@@ -140,12 +161,21 @@ void generate_mines(Game *game) {
   while (number_of_mines > 0) {
     const int row = rand() % GRID_SIZE;
     const int col = rand() % GRID_SIZE;
-    const int index = row * GRID_SIZE + col;
-    if (game->state[index] == UNKNOWN) {
-      game->state[index] = MINE;
+    MineState state = state_at(game, row, col);
+    if (state == UNKNOWN) {
+      state_update(game, row, col, MINE);
     }
     number_of_mines--;
   }
+}
+
+Game game_init() {
+  Game game = {
+    .is_first_move = true,
+    .lost = false
+  };
+  generate_mines(&game);
+  return game;
 }
 
 int main() {
@@ -154,10 +184,7 @@ int main() {
   SetWindowMinSize(200, 400);
   SetTargetFPS(FPS);
 
-  Game game = {0};
-  game.is_first_move = true;
-  game.lost = false;
-  generate_mines(&game);
+  Game game = game_init();
   while (!WindowShouldClose()) {
     BeginDrawing();
     ClearBackground(BLACK);
