@@ -7,7 +7,7 @@
 #define FPS 60
 #define WIDTH 600
 #define HEIGHT 600
-#define GRID_SIZE 10
+#define GRID_SIZE 5
 
 typedef enum {
   UNKNOWN = 0,
@@ -15,12 +15,17 @@ typedef enum {
   MINE = 2
 } MineState;
 
+typedef enum {
+  PLAYING = 0,
+  WON = 1,
+  LOST = 2
+} GameState;
+
 typedef struct {
   MineState state[GRID_SIZE*GRID_SIZE];
   bool is_first_move;
-  bool lost;
+  GameState game_state;
 } Game;
-
 
 int mine_index(int row, int col) {
   return row*GRID_SIZE + col;
@@ -111,6 +116,18 @@ void move_mine(Game *game, int row, int col) {
   }
 }
 
+void update_if_won(Game *game) {
+  for(int row = 0; row < GRID_SIZE; row++) {
+    for(int col = 0; col < GRID_SIZE; col++) {
+      MineState state = state_at(game, row, col);
+      if (state == UNKNOWN) {
+	return;
+      }
+    }
+  }
+  game->game_state = WON;
+}
+
 void update_game(Game *game) {
   if (!IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
     return;
@@ -123,6 +140,7 @@ void update_game(Game *game) {
   switch (state) {
   case UNKNOWN: {
     open_cells_with_non_adjacent_mines(game, row, col);
+    update_if_won(game);
     break;
   }
   case OPEN:
@@ -132,7 +150,7 @@ void update_game(Game *game) {
       state_update(game, row, col, OPEN);
       move_mine(game, row, col);
     } else {
-      game->lost = true;
+      game->game_state = LOST;
     }
     break;
   }
@@ -155,7 +173,7 @@ void generate_mines(Game *game) {
 Game game_init() {
   Game game = {
     .is_first_move = true,
-    .lost = false
+    .game_state = PLAYING
   };
   generate_mines(&game);
   return game;
@@ -182,7 +200,7 @@ void render_game(Game game) {
       DrawRectangleRec(rec, color_for_state(state));
       if (state == OPEN) {
 	const int count = count_adjacent(&game, row, col);
-	char* buff[10];
+	char buff[8];
 	int_to_char(count, buff);
 	const int font_size = mine_size * 0.9;
 	const int size = MeasureText(buff, font_size);
@@ -206,9 +224,13 @@ int main() {
     ClearBackground(BLACK);
 
     update_game(&game);
-    if (game.lost) {
+    if (game.game_state == LOST) {
       // TODO: Make nice lost screen
-      break;
+      puts("lost =(!");
+    }
+    if (game.game_state == WON) {
+      // TODO: Make nice win screen
+      puts("won =)!");
     }
     render_game(game);
 
