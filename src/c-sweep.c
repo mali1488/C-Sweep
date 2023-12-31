@@ -212,6 +212,8 @@ void int_to_char(int n, char* buff) {
     sprintf(buff, "%d", n);
 }
 
+static Font font;
+
 void render_game(Game game) {
   const float mine_size = WIDTH / GRID_SIZE;
   const float padding = 1;
@@ -233,19 +235,35 @@ void render_game(Game game) {
 	int_to_char(count, buff);
 
 	const int font_size = mine_size * 0.9;
-	const int size = MeasureText(buff, font_size);
-	const float text_x = x + mine_size / 2 - size / 2;
-	const float text_y = y + mine_size / 2 - font_size / 2;
-	DrawText(
-	    buff,
-	    text_x,
-	    text_y,
-	    font_size,
-	    color_for_number_of_adjacent(count)
-	);
+	Vector2 size = MeasureTextEx(font, buff, font_size, 0);
+	const float text_x = x + mine_size / 2 - size.x / 2;
+	const float text_y = y + mine_size / 2 - size.y / 2;
+	Vector2 pos = {
+	  .x = text_x,
+	  .y = text_y
+	};
+	Color color = color_for_number_of_adjacent(count);
+	DrawTextEx(font, buff, pos, font_size, 0, color);
       }
     }
   }
+}
+
+void render_lost_screen() {
+  const float w = GetScreenWidth();
+  const float h = GetScreenHeight();
+  const int font_size = 20;
+  const char *label = "You lost!";
+  const int size = MeasureText(label, font_size);
+
+  // TODO: Make pretty
+  DrawText(
+      label,
+      w / 2 - size / 2,
+      h / 2 - font_size / 2,
+      font_size,
+      BLACK
+  );
 }
 
 int main() {
@@ -253,23 +271,24 @@ int main() {
   InitWindow(WIDTH, HEIGHT, GAME_TITLE);
   SetWindowMinSize(200, 400);
   SetTargetFPS(FPS);
+  font = LoadFont("assets/LLPIXEL3.ttf");
 
   Game game = game_init();
   while (!WindowShouldClose()) {
     BeginDrawing();
     ClearBackground(BLACK);
 
+    // TODO: Implement ability to flag unknown tiles
     update_game(&game);
+    render_game(game);
+
     if (game.game_state == LOST) {
-      // TODO: Make nice lost screen
-      puts("lost =(!");
+      render_lost_screen();
     }
     if (game.game_state == WON) {
       // TODO: Make nice win screen
       puts("won =)!");
     }
-    // TODO: Implement ability to flag unknown tiles
-    render_game(game);
 
     EndDrawing();
   }
