@@ -42,23 +42,6 @@ Color color_for_state(MineState state) {
   }
 }
 
-void render_game(Game game) {
-  const float mine_size = WIDTH / GRID_SIZE;
-  const float padding = 1;
-  for(size_t row = 0; row < GRID_SIZE; row++) {
-    for(size_t col = 0; col < GRID_SIZE; col++) {
-      const MineState state = state_at(&game, row, col);
-      Rectangle rec = {
-	  .x = row * mine_size + padding,
-	  .y = col * mine_size + padding,
-	  .width = mine_size - padding * 2,
-	  .height = mine_size - padding * 2,
-      };
-      DrawRectangleRec(rec, color_for_state(state));
-    }
-  }
-}
-
 bool is_valid(int row, int col) {
   if (row < 0 || col < 0) {
     return false;
@@ -176,6 +159,39 @@ Game game_init() {
   };
   generate_mines(&game);
   return game;
+}
+
+void int_to_char(int n, char* buff) {
+    sprintf(buff, "%d", n);
+}
+
+void render_game(Game game) {
+  const float mine_size = WIDTH / GRID_SIZE;
+  const float padding = 1;
+  for(size_t row = 0; row < GRID_SIZE; row++) {
+    for(size_t col = 0; col < GRID_SIZE; col++) {
+      const MineState state = state_at(&game, row, col);
+      const float x = row * mine_size + padding;
+      const float y = col * mine_size + padding;
+      Rectangle rec = {
+	  .x = x,
+	  .y = y,
+	  .width = mine_size - padding * 2,
+	  .height = mine_size - padding * 2,
+      };
+      DrawRectangleRec(rec, color_for_state(state));
+      if (state == OPEN) {
+	const int count = count_adjacent(&game, row, col);
+	char* buff[10];
+	int_to_char(count, buff);
+	const int font_size = mine_size * 0.9;
+	const int size = MeasureText(buff, font_size);
+	const float text_x = x + mine_size / 2 - size / 2;
+	const float text_y = y + mine_size / 2 - font_size / 2;
+	DrawText(buff, text_x, text_y, font_size, BLUE);
+      }
+    }
+  }
 }
 
 int main() {
