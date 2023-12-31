@@ -149,6 +149,9 @@ void update_if_won(Game *game) {
 }
 
 void update_game(Game *game) {
+  if (game->game_state == LOST) {
+    return;
+  }
   if (!IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
     return;
   }
@@ -228,7 +231,11 @@ void render_game(Game game) {
 	  .width = mine_size - padding * 2,
 	  .height = mine_size - padding * 2,
       };
-      DrawRectangleRec(rec, color_for_state(state));
+      Color color = state == OPEN ? COLOR_OPEN : COLOR_NOT_VISITED;
+      if (game.game_state == LOST) {
+	color = color_for_state(state);
+      }
+      DrawRectangleRec(rec, color);
       if (state == OPEN) {
 	const int count = count_adjacent(&game, row, col);
 	char buff[8];
@@ -249,21 +256,74 @@ void render_game(Game game) {
   }
 }
 
-void render_lost_screen() {
-  const float w = GetScreenWidth();
-  const float h = GetScreenHeight();
+void render_label(const char* label, int x, int y, Color text_color, Color color) {
   const int font_size = 20;
-  const char *label = "You lost!";
   const int size = MeasureText(label, font_size);
-
-  // TODO: Make pretty
+  const int half_size = size / 2;
+  const float padding = 5;
+  Rectangle rect = {
+    .x = x - half_size - padding / 2,
+    .y = y - font_size / 2 - padding / 2,
+    .width = size + padding,
+    .height = font_size + padding
+  };
+  DrawRectangleRec(rect, color);
   DrawText(
       label,
-      w / 2 - size / 2,
-      h / 2 - font_size / 2,
+      x - half_size,
+      y - font_size / 2,
       font_size,
-      BLACK
+      text_color
   );
+}
+
+#define COLOR_BUTTON PURPLE
+#define COLOR_BUTTON_TEXT YELLOW
+
+bool render_button(const char* label, int x, int y) {
+  const int font_size = 20;
+  const int size = MeasureText(label, font_size);
+  const int half_size = size / 2;
+  const float padding = 5;
+  Rectangle rect = {
+    .x = x - half_size - padding / 2,
+    .y = y - font_size / 2 - padding / 2,
+    .width = size + padding,
+    .height = font_size + padding
+  }; 
+  Color button_color = COLOR_BUTTON;
+  Color text_color = COLOR_BUTTON_TEXT;
+  bool tapped = false;
+  Vector2 mouse_pos = GetMousePosition();
+  if (CheckCollisionPointRec(mouse_pos, rect)) {
+    button_color = COLOR_BUTTON_TEXT;
+    text_color = COLOR_BUTTON;
+    tapped = IsMouseButtonReleased(MOUSE_LEFT_BUTTON);
+  }
+
+  DrawRectangleRec(rect, button_color);
+  DrawText(
+      label,
+      x - half_size,
+      y - font_size / 2,
+      font_size,
+      text_color
+  );
+  return tapped;
+}
+
+bool render_lost_screen() {
+  const float middle_x = GetScreenWidth() / 2;
+  const float middle_y = GetScreenHeight() / 2;
+  render_label("You lost =(", middle_x, middle_y, WHITE, DARKGRAY);
+  return render_button("Plag again!", middle_x, middle_y + 30);
+}
+
+bool render_won_screen() {
+  const float middle_x = GetScreenWidth() / 2;
+  const float middle_y = GetScreenHeight() / 2;
+  render_label("You won! ==)))", middle_x, middle_y, WHITE, DARKGRAY);
+  return render_button("Plag again!", middle_x, middle_y + 30);
 }
 
 int main() {
@@ -283,11 +343,14 @@ int main() {
     render_game(game);
 
     if (game.game_state == LOST) {
-      render_lost_screen();
+      if(render_lost_screen()) {
+	game = game_init();
+      }
     }
     if (game.game_state == WON) {
-      // TODO: Make nice win screen
-      puts("won =)!");
+      if(render_won_screen()) {
+	game = game_init();
+      }
     }
 
     EndDrawing();
