@@ -98,7 +98,7 @@ int count_adjacent(Game *game, int row, int col) {
   return number_of_mines;
 }
 
-void open_cells_with_non_adjacent_mines(Game *game, int row, int col) {
+void open_adjacent_cells(Game *game, int row, int col) {
   if (!is_valid(row, col)) {
     return;
   }
@@ -116,7 +116,7 @@ void open_cells_with_non_adjacent_mines(Game *game, int row, int col) {
       if (i == 0 && j == 0) {
 	continue;
       }
-      open_cells_with_non_adjacent_mines(game, row + i, col + j);
+      open_adjacent_cells(game, row + i, col + j);
     }
   }
 }
@@ -162,7 +162,7 @@ void update_game(Game *game) {
   MineState state = tile_state_at(game, row, col);
   switch (state) {
   case NOT_VISITED: {
-    open_cells_with_non_adjacent_mines(game, row, col);
+    open_adjacent_cells(game, row, col);
     update_if_won(game);
     break;
   }
