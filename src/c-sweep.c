@@ -7,10 +7,17 @@
 #define FPS 60
 #define WIDTH 600
 #define HEIGHT 600
-#define GRID_SIZE 5
+#define GRID_SIZE 10
 #define COLOR_OPEN GREEN
 #define COLOR_MINE RED
 #define COLOR_NOT_VISITED RAYWHITE
+
+typedef enum {
+  EASY = 0,
+  NORMAL = 1,
+  HARD = 2,
+  SUPER_HARD = 3
+} Difficulty;
 
 typedef enum {
   NOT_VISITED = 0,
@@ -125,7 +132,7 @@ void move_mine(Game *game, int row, int col) {
 	tile_state_update(game, r, c, MINE);
 	moved = true;
       }
-    }
+   }
   }
 }
 
@@ -170,16 +177,25 @@ void update_game(Game *game) {
   game->is_first_move = false;
 }
 
-void generate_mines(Game *game) {
-  int number_of_mines = GRID_SIZE * GRID_SIZE * 0.8;
+float difficulty_multiplier(Difficulty difficulty) {
+  switch (difficulty) {
+  case EASY: return 0.1;
+  case NORMAL: return 0.2;
+  case HARD: return 0.4;
+  case SUPER_HARD: return 0.6;
+  }
+}
+
+void generate_mines(Game *game, Difficulty difficulty) {
+  int number_of_mines = GRID_SIZE * GRID_SIZE * difficulty_multiplier(difficulty);
   while (number_of_mines > 0) {
     const int row = rand() % GRID_SIZE;
     const int col = rand() % GRID_SIZE;
     MineState state = tile_state_at(game, row, col);
     if (state == NOT_VISITED) {
       tile_state_update(game, row, col, MINE);
+      number_of_mines--;
     }
-    number_of_mines--;
   }
 }
 
@@ -188,7 +204,7 @@ Game game_init() {
     .is_first_move = true,
     .game_state = PLAYING
   };
-  generate_mines(&game);
+  generate_mines(&game, NORMAL);
   return game;
 }
 
