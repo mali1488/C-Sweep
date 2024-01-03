@@ -12,6 +12,9 @@
 #define COLOR_MINE RED
 #define COLOR_NOT_VISITED RAYWHITE
 
+#define SCREEN_CENTER_X GetScreenWidth() / 2
+#define SCREEN_CENTER_Y GetScreenHeight() / 2
+
 typedef enum {
   EASY = 0,
   NORMAL = 1,
@@ -57,7 +60,6 @@ MineState tile_state_at(Game *game, int row, int col) {
 void tile_update_flagged(Game *game, int row, int col) {
   const int index = tile_index(row, col);
   bool flagged = game->tiles[index].flagged;
-  printf("%d %d = %d %d \n", row, col, flagged, !flagged);
   game->tiles[index].flagged = !flagged;
 }
 
@@ -164,22 +166,7 @@ void update_if_won(Game *game) {
   game->game_state = WON;
 }
 
-void update_game(Game *game) {
-  if (game->game_state == LOST) {
-    return;
-  }
-  if (IsMouseButtonReleased(MOUSE_RIGHT_BUTTON)) {
-    Vector2 mouse_pos = GetMousePosition();
-    float mine_size = WIDTH / GRID_SIZE;
-    int row = mouse_pos.x / mine_size;
-    int col = mouse_pos.y / mine_size;
-    tile_update_flagged(game, row, col);
-  }
-  if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-    Vector2 mouse_pos = GetMousePosition();
-    float mine_size = WIDTH / GRID_SIZE;
-    int row = mouse_pos.x / mine_size;
-    int col = mouse_pos.y / mine_size;
+void game_update_clicked_tile(Game* game, int row, int col) {
     MineState state = tile_state_at(game, row, col);
     switch (state) {
     case NOT_VISITED: {
@@ -199,6 +186,22 @@ void update_game(Game *game) {
       break;
     }
     game->is_first_move = false;
+}
+
+void update_game(Game *game) {
+  if (game->game_state == LOST) {
+    return;
+  }
+  Vector2 mouse_pos = GetMousePosition();
+  float mine_size = WIDTH / GRID_SIZE;
+  int row = mouse_pos.x / mine_size;
+  int col = mouse_pos.y / mine_size;
+
+  if (IsMouseButtonReleased(MOUSE_RIGHT_BUTTON)) {
+    tile_update_flagged(game, row, col);
+  }
+  if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+    game_update_clicked_tile(game, row, col);
   }
 }
 
@@ -350,15 +353,15 @@ bool render_button(const char* label, int x, int y) {
 }
 
 bool render_lost_screen() {
-  const float middle_x = GetScreenWidth() / 2;
-  const float middle_y = GetScreenHeight() / 2;
+  const float middle_x = SCREEN_CENTER_X;
+  const float middle_y = SCREEN_CENTER_Y;
   render_label("You lost =(", middle_x, middle_y, WHITE, DARKGRAY);
   return render_button("Plag again!", middle_x, middle_y + 30);
 }
 
 bool render_won_screen() {
-  const float middle_x = GetScreenWidth() / 2;
-  const float middle_y = GetScreenHeight() / 2;
+  const float middle_x = SCREEN_CENTER_X;
+  const float middle_y = SCREEN_CENTER_Y;
   render_label("You won! ==)))", middle_x, middle_y, WHITE, DARKGRAY);
   return render_button("Plag again!", middle_x, middle_y + 30);
 }
