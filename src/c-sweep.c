@@ -32,7 +32,12 @@ typedef enum {
 } GameState;
 
 typedef struct {
-  MineState tiles[GRID_SIZE*GRID_SIZE];
+  MineState state;
+  bool flagged;
+} Tile;
+
+typedef struct {
+  Tile tiles[GRID_SIZE*GRID_SIZE];
   bool is_first_move;
   GameState game_state;
 } Game;
@@ -41,12 +46,23 @@ int tile_index(int row, int col) {
   return row*GRID_SIZE + col;
 }
 
+bool tile_flagged_at(Game *game, int row, int col) {
+  return game->tiles[tile_index(row, col)].flagged;
+}
+
 MineState tile_state_at(Game *game, int row, int col) {
-  return game->tiles[tile_index(row, col)];
+  return game->tiles[tile_index(row, col)].state;
+}
+
+void tile_update_flagged(Game *game, int row, int col) {
+  const int index = tile_index(row, col);
+  bool flagged = game->tiles[index].flagged;
+  printf("%d %d = %d %d \n", row, col, flagged, !flagged);
+  game->tiles[index].flagged = !flagged;
 }
 
 void tile_state_update(Game *game, int row, int col, MineState state) {
-  game->tiles[tile_index(row, col)] = state;
+  game->tiles[tile_index(row, col)].state = state;
 }
 
 Color color_for_state(MineState state) {
@@ -152,32 +168,38 @@ void update_game(Game *game) {
   if (game->game_state == LOST) {
     return;
   }
-  if (!IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-    return;
+  if (IsMouseButtonReleased(MOUSE_RIGHT_BUTTON)) {
+    Vector2 mouse_pos = GetMousePosition();
+    float mine_size = WIDTH / GRID_SIZE;
+    int row = mouse_pos.x / mine_size;
+    int col = mouse_pos.y / mine_size;
+    tile_update_flagged(game, row, col);
   }
-  Vector2 mouse_pos = GetMousePosition();
-  float mine_size = WIDTH / GRID_SIZE;
-  int row = mouse_pos.x / mine_size;
-  int col = mouse_pos.y / mine_size;
-  MineState state = tile_state_at(game, row, col);
-  switch (state) {
-  case NOT_VISITED: {
-    open_adjacent_cells(game, row, col);
-    update_if_won(game);
-    break;
-  }
-  case OPEN:
-    break;
-  case MINE:
-    if (game->is_first_move) {
-      tile_state_update(game, row, col, OPEN);
-      move_mine(game, row, col);
-    } else {
-      game->game_state = LOST;
+  if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+    Vector2 mouse_pos = GetMousePosition();
+    float mine_size = WIDTH / GRID_SIZE;
+    int row = mouse_pos.x / mine_size;
+    int col = mouse_pos.y / mine_size;
+    MineState state = tile_state_at(game, row, col);
+    switch (state) {
+    case NOT_VISITED: {
+      open_adjacent_cells(game, row, col);
+      update_if_won(game);
+      break;
     }
-    break;
+    case OPEN:
+      break;
+    case MINE:
+      if (game->is_first_move) {
+	tile_state_update(game, row, col, OPEN);
+	move_mine(game, row, col);
+      } else {
+	game->game_state = LOST;
+      }
+      break;
+    }
+    game->is_first_move = false;
   }
-  game->is_first_move = false;
 }
 
 float difficulty_multiplier(Difficulty difficulty) {
@@ -216,6 +238,18 @@ void int_to_char(int n, char* buff) {
 }
 
 static Font font;
+static Texture flag_texture;
+
+void render_flag(Rectangle at) {
+  Rectangle src = {
+    .x = 0,
+    .y = 0,
+    .width = flag_texture.width,
+    .height = flag_texture.height
+  };
+  Vector2 origin = { .x = 0, .y = 0 };
+  DrawTexturePro(flag_texture, src, at, origin, 0, Fade(PURPLE, 0.5));
+}
 
 void render_game(Game game) {
   const float mine_size = WIDTH / GRID_SIZE;
@@ -236,6 +270,9 @@ void render_game(Game game) {
 	color = color_for_state(state);
       }
       DrawRectangleRec(rec, color);
+      if (state != OPEN && tile_flagged_at(&game, row, col)) {
+	render_flag(rec);	
+      }
       if (state == OPEN) {
 	const int count = count_adjacent(&game, row, col);
 	char buff[8];
@@ -332,13 +369,13 @@ int main() {
   SetWindowMinSize(200, 400);
   SetTargetFPS(FPS);
   font = LoadFont("assets/LLPIXEL3.ttf");
+  flag_texture = LoadTexture("assets/flag.png");
 
   Game game = game_init();
   while (!WindowShouldClose()) {
     BeginDrawing();
     ClearBackground(BLACK);
 
-    // TODO: Implement ability to flag unknown tiles
     update_game(&game);
     render_game(game);
 
@@ -355,6 +392,8 @@ int main() {
 
     EndDrawing();
   }
+  UnloadFont(font);
+  UnloadTexture(flag_texture);
   CloseWindow();
 
   return 0;
